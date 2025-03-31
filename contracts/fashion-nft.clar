@@ -16,9 +16,13 @@
   (let
     ((token-id (var-get token-id-nonce))
      (designer tx-sender)
-     (designer-current-tokens (default-to (list) (map-get? designer-tokens designer))))
-    
-    (asserts! (is-eq (len designer-current-tokens) (len designer-current-tokens)) true) ;; Always true, just to avoid warning
+     (designer-current-tokens (default-to (list) (map-get? designer-tokens designer)))
+     ;; Check if we need to manage list size
+     (updated-tokens (if (>= (len designer-current-tokens) u99)
+                        ;; If list is at or near capacity, take the last 99 items
+                        (append (list) (unwrap-panic (as-max-len? (slice designer-current-tokens u1 (len designer-current-tokens)) u99)))
+                        ;; Otherwise use the current list
+                        designer-current-tokens)))
     
     ;; Mint the token
     (try! (nft-mint? fashion-nft token-id designer))
@@ -26,8 +30,8 @@
     ;; Store the metadata
     (map-set token-metadata token-id {designer: designer, name: name, description: description, image-uri: image-uri, price: price})
     
-    ;; Update designer's token list
-    (map-set designer-tokens designer (append designer-current-tokens token-id))
+    ;; Update designer's token list - safely append to ensure we don't exceed the limit
+    (map-set designer-tokens designer (append updated-tokens token-id))
     
     ;; Increment the token ID counter
     (var-set token-id-nonce (+ token-id u1))
